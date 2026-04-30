@@ -51,6 +51,7 @@ a keepalive every 10 seconds:
   "entries": ["10:42 git push", "10:41 yarn test", "10:39 reading file..."],
   "tokens": 184502,
   "tokens_today": 31200,
+  "attention": true,
   "prompt": {
     "id": "req_abc123",
     "tool": "Bash",
@@ -68,7 +69,16 @@ a keepalive every 10 seconds:
 | `entries`      | Recent transcript lines, newest first (capped to a few)                           |
 | `tokens`       | Cumulative output tokens since the desktop app started                            |
 | `tokens_today` | Output tokens since local midnight (persisted, survives restart)                  |
+| `attention`    | Briefly true when the user needs to act (alert effect: beep + visual)             |
+| `completed`    | Briefly true after a celebratory event (e.g. fast approval); pure visual celebrate |
 | `prompt`       | Only present when a permission decision is needed. The `id` is what you echo back |
+
+**`attention` vs `completed`** — both are short-lived flags (a few seconds), but they
+mean different things. `attention` says *the user has to do something* (e.g. CLI
+fired a Notification asking for permission); the device should grab attention with
+sound + a distinct visual. `completed` is celebratory (e.g. token milestone, fast
+approval); pure visual feedback, no sound. Bridges only set one or the other; old
+firmware that only knows `completed` simply ignores `attention`.
 
 A few useful derived signals: `running > 0` means at least one session is
 actively generating, `waiting > 0` means a permission prompt is blocking,

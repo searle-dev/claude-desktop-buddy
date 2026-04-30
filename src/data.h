@@ -9,6 +9,7 @@ struct TamaState {
   uint8_t  sessionsRunning;
   uint8_t  sessionsWaiting;
   bool     recentlyCompleted;
+  bool     attention;
   uint32_t tokensToday;
   uint32_t lastUpdated;
   char     msg[24];
@@ -34,11 +35,11 @@ static bool     _demoMode   = false;
 static uint8_t  _demoIdx    = 0;
 static uint32_t _demoNext   = 0;
 
-struct _Fake { const char* n; uint8_t t,r,w; bool c; uint32_t tok; };
+struct _Fake { const char* n; uint8_t t,r,w; bool c; bool a; uint32_t tok; };
 static const _Fake _FAKES[] = {
-  {"asleep",0,0,0,false,0}, {"one idle",1,0,0,false,12000},
-  {"busy",4,3,0,false,89000}, {"attention",2,1,1,false,45000},
-  {"completed",1,0,0,true,142000},
+  {"asleep",0,0,0,false,false,0}, {"one idle",1,0,0,false,false,12000},
+  {"busy",4,3,0,false,false,89000}, {"attention",2,1,0,false,true,45000},
+  {"completed",1,0,0,true,false,142000},
 };
 
 inline void dataSetDemo(bool on) {
@@ -94,6 +95,7 @@ static void _applyJson(const char* line, TamaState* out) {
   out->sessionsRunning   = doc["running"]   | out->sessionsRunning;
   out->sessionsWaiting   = doc["waiting"]   | out->sessionsWaiting;
   out->recentlyCompleted = doc["completed"] | false;
+  out->attention         = doc["attention"] | false;
   uint32_t bridgeTokens = doc["tokens"] | 0;
   if (doc["tokens"].is<uint32_t>()) statsOnBridgeTokens(bridgeTokens);
   out->tokensToday = doc["tokens_today"] | out->tokensToday;
@@ -151,7 +153,7 @@ inline void dataPoll(TamaState* out) {
     if (now >= _demoNext) { _demoIdx = (_demoIdx + 1) % 5; _demoNext = now + 8000; }
     const _Fake& s = _FAKES[_demoIdx];
     out->sessionsTotal=s.t; out->sessionsRunning=s.r; out->sessionsWaiting=s.w;
-    out->recentlyCompleted=s.c; out->tokensToday=s.tok; out->lastUpdated=now;
+    out->recentlyCompleted=s.c; out->attention=s.a; out->tokensToday=s.tok; out->lastUpdated=now;
     out->connected = true;
     snprintf(out->msg, sizeof(out->msg), "demo: %s", s.n);
     return;
@@ -177,7 +179,7 @@ inline void dataPoll(TamaState* out) {
   out->connected = dataConnected();
   if (!out->connected) {
     out->sessionsTotal=0; out->sessionsRunning=0; out->sessionsWaiting=0;
-    out->recentlyCompleted=false; out->lastUpdated=now;
+    out->recentlyCompleted=false; out->attention=false; out->lastUpdated=now;
     strncpy(out->msg, "No Claude connected", sizeof(out->msg)-1);
     out->msg[sizeof(out->msg)-1]=0;
   }

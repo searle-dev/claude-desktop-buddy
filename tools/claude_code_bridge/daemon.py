@@ -40,7 +40,7 @@ NUS_TX = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"  # central subscribes here
 SOCK_PATH = os.environ.get("CLAUDE_BUDDY_SOCK", "/tmp/claude-buddy.sock")
 DEVICE_NAME_PREFIX = "Claude"
 SNAPSHOT_INTERVAL = 5.0          # idle keepalive cadence (device times out at 30s)
-NOTIFY_FLASH_S = 6.0             # how long to keep `completed` true (buzz window)
+ATTENTION_FLASH_S = 6.0          # how long to keep `attention` true (alert window)
 NOTIFY_MSG_S = 8.0               # how long to surface notification text in `msg`
 RECENT_LINES_MAX = 5
 
@@ -59,7 +59,7 @@ class State:
         self.tokens_today: int = 0
         self.tokens_today_date = datetime.now().date()
         self.transcript_seen: dict[str, int] = {}      # transcript_path → bytes consumed
-        self.notify_flash_until: float = 0.0           # epoch s; sets `completed` true while in window
+        self.attention_flash_until: float = 0.0        # epoch s; sets `attention` true while in window
         self.notify_msg: str = ""                      # short text shown briefly in snapshot.msg
         self.notify_msg_until: float = 0.0             # epoch s; show notify_msg while now < this
         self.dirty = asyncio.Event()                   # set when snapshot needs rebuild
@@ -92,8 +92,8 @@ class State:
             "tokens": self.tokens,
             "tokens_today": self.tokens_today,
         }
-        if now < self.notify_flash_until:
-            snap["completed"] = True
+        if now < self.attention_flash_until:
+            snap["attention"] = True
         return snap
 
 
@@ -292,9 +292,9 @@ async def handle_hook(state: State, reader: asyncio.StreamReader, writer: asynci
                 state.add_line(f"{datetime.now():%H:%M} {msg}")
                 state.notify_msg = msg
                 state.notify_msg_until = now + NOTIFY_MSG_S
-                state.notify_flash_until = now + NOTIFY_FLASH_S
+                state.attention_flash_until = now + ATTENTION_FLASH_S
                 state.dirty.set()
-                log(f"Notification: {msg!r} → buzz {NOTIFY_FLASH_S}s")
+                log(f"Notification: {msg!r} → attention {ATTENTION_FLASH_S}s")
 
         else:
             log(f"unknown event: {kind}")

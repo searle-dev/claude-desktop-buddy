@@ -54,6 +54,8 @@ const uint8_t PET_PAGES = 2;
 uint8_t msgScroll = 0;
 uint16_t lastLineGen = 0;
 char     lastPromptId[40] = "";
+bool     lastAttention = false;          // edge-detect rising attention for beep
+uint32_t pendingAttentionBeep2Ms = 0;    // millis() target for the second of two short beeps
 uint32_t lastInteractMs = 0;
 bool     dimmed = false;
 bool     screenOff = false;
@@ -477,10 +479,10 @@ static void drawClock() {
 }
 
 PersonaState derive(const TamaState& s) {
-  if (!s.connected)            return P_IDLE;
-  if (s.sessionsWaiting > 0)   return P_ATTENTION;
-  if (s.recentlyCompleted)     return P_CELEBRATE;
-  if (s.sessionsRunning >= 3)  return P_BUSY;
+  if (!s.connected)                          return P_IDLE;
+  if (s.attention || s.sessionsWaiting > 0)  return P_ATTENTION;
+  if (s.recentlyCompleted)                   return P_CELEBRATE;
+  if (s.sessionsRunning >= 3)                return P_BUSY;
   return P_IDLE;   // connected, 0+ sessions, nothing urgent — hang out
 }
 
@@ -1016,6 +1018,18 @@ void loop() {
       triggerOneShot(P_DIZZY, 2000);
       Serial.println("shake: dizzy");
     }
+  }
+
+  // Attention rising edge → double-short beep (Notification from CLI: "needs you")
+  if (tama.attention && !lastAttention) {
+    wake();
+    beep(1800, 60);
+    pendingAttentionBeep2Ms = millis() + 130;
+  }
+  lastAttention = tama.attention;
+  if (pendingAttentionBeep2Ms && (int32_t)(millis() - pendingAttentionBeep2Ms) >= 0) {
+    beep(1800, 60);
+    pendingAttentionBeep2Ms = 0;
   }
 
   // BtnA: step through fake scenarios
